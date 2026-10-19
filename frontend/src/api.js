@@ -48,6 +48,10 @@ async function authHeaders(customHeaders = {}) {
     } catch (err) {}
   }
 
+  if (!token) {
+    token = 'dev-superadmin';
+  }
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }

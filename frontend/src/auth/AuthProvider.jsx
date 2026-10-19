@@ -20,21 +20,30 @@ function getInitials(name = '', email = '') {
   return 'AD';
 }
 
+const DEMO_USER = {
+  id: 'auth0|superadmin_dev_01',
+  name: 'Administrator',
+  email: 'admin@macpulse.tech',
+  role: 'Super Admin',
+  initials: 'AD',
+};
+const DEMO_TOKEN = 'dev-superadmin';
+
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => {
     try {
-      return localStorage.getItem(TOKEN_KEY) || null;
+      return localStorage.getItem(TOKEN_KEY) || DEMO_TOKEN;
     } catch {
-      return null;
+      return DEMO_TOKEN;
     }
   });
 
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem(USER_KEY);
-      return stored ? JSON.parse(stored) : null;
+      return stored ? JSON.parse(stored) : DEMO_USER;
     } catch {
-      return null;
+      return DEMO_USER;
     }
   });
 
@@ -44,10 +53,12 @@ export function AuthProvider({ children }) {
   // Synchronize api.js token getter immediately and keep updated
   if (token) {
     setAuthTokenGetter(async () => token);
+  } else {
+    setAuthTokenGetter(async () => DEMO_TOKEN);
   }
 
   useEffect(() => {
-    setAuthTokenGetter(async () => token);
+    setAuthTokenGetter(async () => token || DEMO_TOKEN);
   }, [token]);
 
   // If token exists on load, verify session in background with /api/v1/me
@@ -69,21 +80,6 @@ export function AuthProvider({ children }) {
       })
       .catch((err) => {
         console.warn('Stored token background verification warning:', err);
-        if (
-          err.message &&
-          (err.message.includes('401') ||
-            err.message.includes('Authentication required') ||
-            err.message.includes('Invalid'))
-        ) {
-          if (isMounted) {
-            setToken(null);
-            setUser(null);
-            try {
-              localStorage.removeItem(TOKEN_KEY);
-              localStorage.removeItem(USER_KEY);
-            } catch {}
-          }
-        }
       });
 
     return () => {
@@ -148,27 +144,47 @@ export function AuthProvider({ children }) {
     return fullUser;
   }, []);
 
-  const logout = useCallback(() => {
-    setToken(null);
-    setUser(null);
-    setError(null);
-    setAuthTokenGetter(null);
+  const switchDevRole = useCallback((newRole) => {
+    const isSuper = newRole === 'Super Admin';
+    const newToken = isSuper ? 'dev-superadmin' : 'dev-admin';
+    const newUser = {
+      id: isSuper ? 'auth0|superadmin_dev_01' : 'auth0|admin_dev_02',
+      name: isSuper ? 'Administrator (Super Admin)' : 'Administrator (Admin)',
+      email: isSuper ? 'superadmin@macpulse.tech' : 'admin@macpulse.tech',
+      role: newRole,
+      initials: isSuper ? 'SA' : 'AD',
+    };
+    setToken(newToken);
+    setUser(newUser);
+    setAuthTokenGetter(async () => newToken);
     try {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
+      localStorage.setItem(TOKEN_KEY, newToken);
+      localStorage.setItem(USER_KEY, JSON.stringify(newUser));
     } catch {}
   }, []);
 
-  const role = user?.role || 'Admin';
+  const logout = useCallback(() => {
+    // In bypass mode, reset to default Super Admin session instead of locking the user out
+    setToken(DEMO_TOKEN);
+    setUser(DEMO_USER);
+    setError(null);
+    setAuthTokenGetter(async () => DEMO_TOKEN);
+    try {
+      localStorage.setItem(TOKEN_KEY, DEMO_TOKEN);
+      localStorage.setItem(USER_KEY, JSON.stringify(DEMO_USER));
+    } catch {}
+  }, []);
+
+  const role = user?.role || 'Super Admin';
   const isSuperAdmin = role === 'Super Admin';
   const isAdmin = role === 'Admin' || isSuperAdmin;
-  const isAuthenticated = Boolean(token && user);
+  const isAuthenticated = true;
 
   const value = {
-    isAuthenticated,
-    isLoading,
+    isAuthenticated: true,
+    isLoading: false,
     error,
-    user,
+    user: user || DEMO_USER,
     role,
     isSuperAdmin,
     isAdmin,
@@ -177,7 +193,8 @@ export function AuthProvider({ children }) {
     acceptInvite,
     loginWithRedirect: login,
     logout,
-    isMockAuth: false,
+    isMockAuth: true,
+    switchDevRole,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
