@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for MacPulse (Coordinator API + Embedded React Dashboard)
 
 # Stage 1: Build React Frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci --prefer-offline || npm install
